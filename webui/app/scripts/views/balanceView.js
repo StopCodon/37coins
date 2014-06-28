@@ -1,11 +1,13 @@
 define([
     'backbone',
     'hbs!tmpl/balanceView_tmpl',
+    'i18n!nls/labels'
 ],
-function(Backbone, BalanceTmpl) {
+function(Backbone, BalanceTmpl, myLabels) {
     'use strict';
     return Backbone.Marionette.ItemView.extend({
         template: BalanceTmpl,
+        templateHelpers: function(){return {s: myLabels};},
         className: 'gwLayout',
         initialize: function() {
             this.model.on('error', this.onError, this);
@@ -28,7 +30,7 @@ function(Backbone, BalanceTmpl) {
                     xhr.setRequestHeader('Authorization', 'Basic ' + btoa(up.username + ':' + up.password));
                 },
                 success: function(data){
-                    self.$('span.spin').replaceWith('<strong> ' + data.balance + ' BTC</string>');
+                    self.$('img.spin').replaceWith('<strong> ' + data.balance + ' BTC</string>');
                     window.clearInterval(self.iid);
                 }
             });

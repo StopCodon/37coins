@@ -5,12 +5,13 @@ define([
     'views/commandsView',
     'views/accountHeadlineView',
     'webfinger',
+    'i18n!nls/labels'
 ],
-function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineView, webfinger) {
+function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineView, webfinger, myLabels) {
     'use strict';
     return Backbone.Marionette.Layout.extend({
         template: AccountLayout,
-
+        templateHelpers: function(){return {s: myLabels};},
         regions: {
             commands: '#smsCommands',
             header: '#accountHeadline'
@@ -54,8 +55,7 @@ function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineVie
                     var strIntlNumber = this.phoneUtil.format(number, pnf.E164);
                     var obj = JSON.stringify({mobile:strIntlNumber});
                     if (this.phoneUtil.getRegionCodeForNumber(number)==='US'){
-                        var gwCn = (window.opt.srvcPath && window.opt.srvcPath.indexOf('mq.')!==-1)?'JD68FMUT9438NQWT':'ADDT37MWFZ721J4D';
-                        obj = JSON.stringify({mobile:strIntlNumber,preferredGateway:gwCn});
+                        obj = JSON.stringify({mobile:strIntlNumber});
                     }
                     $.ajax({
                         type: 'POST',
@@ -118,6 +118,7 @@ function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineVie
                 this.$('#donate').append( '<a href="bitcoin:'+data+'">'+data+'</a>');
                 this.attemts = 0;
             }else{
+                this.attempts++;
                 this.submitInvite({status:200});
             }
         }

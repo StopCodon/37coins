@@ -4,14 +4,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.mail.internet.AddressException;
 import javax.servlet.Filter;
@@ -22,12 +20,17 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 
 import org.btc4all.webfinger.WebfingerClient;
+import org.btc4all.webfinger.WebfingerClientException;
 import org.btc4all.webfinger.pojo.JsonResourceDescriptor;
 import org.btc4all.webfinger.pojo.Link;
 import org.joda.money.BigMoney;
 import org.joda.money.CurrencyUnit;
+import org.restnucleus.WrappedRequest;
+import org.restnucleus.filter.DigestFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,70 +61,80 @@ public class ParserFilter implements Filter {
 	public static final String BC_ADDR_REGEX = "^[mn13][1-9A-Za-z][^OIl]{20,40}";
 	
 	private final FiatPriceProvider fiatPriceProvider;
+	private int unitFactor;
+	private String unitName;
 	
-	@Inject
-	public ParserFilter(FiatPriceProvider fiatPriceProvider){
+	public ParserFilter(FiatPriceProvider fiatPriceProvider, int unitFactor, String unitName){
 		this.fiatPriceProvider = fiatPriceProvider;
+		this.unitFactor = unitFactor;
+		this.unitName = unitName;
 	}
 
 	public void doFilter(ServletRequest request, ServletResponse response,
 			FilterChain chain) throws IOException, ServletException {
-		HttpServletRequest httpReq = (HttpServletRequest) request;
-		// parse parameters
-		String from = httpReq.getParameter("from");
-		String gateway = httpReq.getParameter("gateway");
-		String message = httpReq.getParameter("message");
-		String gwCn = httpReq.getParameter("gwCn");
-		// Parse the locale
-		String acceptLng = httpReq.getHeader("Accept-Language");
-		Locale locale = DataSet.parseLocaleString(acceptLng);
-		// parse action
-		String url = httpReq.getRequestURL().toString();
-		String actionString = url.substring(
-				url.indexOf(ParserResource.PATH) + ParserResource.PATH.length() + 1, url.length());
-		try {
-			// parse message address
-			MessageAddress md = MessageAddress.fromString(from, gateway)
-					.setGateway(gateway);
-			//exclude all roaming requests
-			if (md.getAddressType() == MsgType.SMS 
-					&& !isFromSameCountry(md, gateway)){
-				respond(new ArrayList<DataSet>(), response);
-			}
-			//exclude non mobile numbers
-			if (md.getAddressType() == MsgType.SMS
-					&& !isMobileNumber(md)){
-				respond(new ArrayList<DataSet>(), response);
-			}
-			//set locale
-			if (md.getAddressType() == MsgType.SMS){
-				PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
-				String rc = phoneUtil.getRegionCodeForNumber(md.getPhoneNumber());
-				locale = new Locale("",rc);
-			}else if (null==locale){
-				locale = Locale.US;
-			}
-			// parse message into dataset
-			DataSet responseData = process(md, message, locale,Action.fromString(actionString));
-			List<DataSet> responseList = new ArrayList<>();
-			responseList.add(responseData);
-			//use it
-			if (responseData.getAction()==Action.UNKNOWN_COMMAND||CommandParser.reqCmdList.contains(responseData.getAction())){
-				httpReq.setAttribute("dsl", responseList);
-				chain.doFilter(request, response);
-			}else{
-		        if (gwCn!=null){
-		            responseData.getTo().setGateway(gwCn);
-		            responseData.setGwCn(gwCn);
-		        }
-				respond(responseList,response);
-			}
-		} catch (Exception e) {
-			log.error("parser exception", e);
-			e.printStackTrace();
-			HttpServletResponse httpResponse = (HttpServletResponse) response;
-			httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-		}
+        HttpServletRequest httpReq = (HttpServletRequest) request;
+        DataSet responseData = null;
+        List<DataSet> responseList = null;
+        if (null==httpReq.getAttribute("pFlag")){
+            httpReq.setAttribute("pFlag", true);
+    		// parse parameters
+    		MultivaluedMap<String, String> map = new MultivaluedHashMap<>();
+    		DigestFilter.fromBody((WrappedRequest)request, map);
+    		String from = map.getFirst("from");
+    		String gateway = map.getFirst("gateway");
+    		gateway = (null==gateway||gateway.length()<3)?null:gateway;
+    		String message = map.getFirst("message");
+    		String gwCn = map.getFirst("gwCn");
+    		httpReq.setAttribute("gwCn", gwCn);
+    		// Parse the locale
+    		String acceptLng = httpReq.getHeader("Accept-Language");
+    		Locale locale = DataSet.parseLocaleString(acceptLng);
+    		// parse action
+    		String url = httpReq.getRequestURL().toString();
+    		String actionString = url.substring(
+    				url.indexOf(ParserResource.PATH) + ParserResource.PATH.length() + 1, url.length());
+    		try {
+    			// parse message address
+    			MessageAddress md = MessageAddress.fromString(from, gateway)
+    					.setGateway(gateway);
+    			//exclude all roaming requests
+    			if (md.getAddressType() == MsgType.SMS 
+    					&& !isFromSameCountry(md, gateway)){
+    				respond(new ArrayList<DataSet>(), response);
+    			}
+    			//exclude non mobile numbers
+    			if (md.getAddressType() == MsgType.SMS
+    					&& !isMobileNumber(md)){
+    				respond(new ArrayList<DataSet>(), response);
+    			}
+    			//set locale
+    			if (md.getAddressType() == MsgType.SMS){
+    				PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
+    				String rc = phoneUtil.getRegionCodeForNumber(md.getPhoneNumber());
+    				locale = new Locale("",rc);
+    			}else if (null==locale){
+    				locale = Locale.US;
+    			}
+    			// parse message into dataset
+    			responseData = process(md, message, locale,Action.fromString(actionString));
+    			responseList = new ArrayList<>();
+    			responseList.add(responseData);
+            } catch (Exception e) {
+                log.error("parser exception", e);
+                e.printStackTrace();
+                HttpServletResponse httpResponse = (HttpServletResponse) response;
+                httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+    	      //use it
+            if ((responseData.getAction()==Action.UNKNOWN_COMMAND||CommandParser.reqCmdList.contains(responseData.getAction()))){
+                httpReq.setAttribute("dsl", responseList);
+                chain.doFilter(httpReq, response);
+            }else{
+                respond(responseList,response);
+            }
+    	}else{
+    	    chain.doFilter(request, response);
+    	}
 	}
 	
 	private boolean isMobileNumber(MessageAddress sender){
@@ -210,7 +223,7 @@ public class ParserFilter implements Filter {
 						bitcoinAddr = l.getHref().toString();
 					}
 				}
-			}catch(IOException| URISyntaxException e){
+			}catch(WebfingerClientException e){
 				log.error("parser exception",e);
 				e.printStackTrace();
 			}
@@ -254,7 +267,8 @@ public class ParserFilter implements Filter {
 				Pattern pattern = Pattern.compile("[a-zA-Z]{3}");
 				Matcher matcher = pattern.matcher(amount);
 				matcher.find();
-				amount = matcher.group().toUpperCase() + " "+r[r.length-1];
+				String g = matcher.group().toUpperCase();
+				amount = ((g.equals(unitName.toUpperCase()))?"BTC ":g + " ") + r[r.length-1];
 			}
 		}
 		try {
@@ -264,7 +278,7 @@ public class ParserFilter implements Filter {
 				PriceTick pt = fiatPriceProvider.getLocalCurValue(null, money.getCurrencyUnit());
 				val = money.getAmount().divide(pt.getLast(),8,RoundingMode.HALF_UP); 
 			}else{
-				val = val.divide(new BigDecimal(1000));
+				val = val.divide(new BigDecimal(unitFactor));
 			}
 			w.setAmount(val);
 			return true;
@@ -352,11 +366,12 @@ public class ParserFilter implements Filter {
 		if (data.getAction() == Action.BUY 
 				|| data.getAction() == Action.SELL) {
 			float price = 1f;
-			try{
-				price = Float.parseFloat(ca[1]);
-			}catch(Exception e){
-				log.error("parse float failed",e);
-			}
+			if (ca.length>1)
+    			try{
+    				price = Float.parseFloat(ca[1]);
+    			}catch(Exception e){
+    				log.error("parse float failed",e);
+    			}
 			data.setPayload(price);
 		}
 		if (data.getAction() == Action.CLAIM){

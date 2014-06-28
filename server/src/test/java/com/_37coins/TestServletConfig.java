@@ -15,22 +15,27 @@ import net.sf.ehcache.store.MemoryStoreEvictionPolicy;
 
 import org.apache.shiro.guice.web.GuiceShiroFilter;
 import org.restnucleus.PersistenceConfiguration;
+import org.restnucleus.filter.CorsFilter;
+import org.restnucleus.filter.DigestFilter;
 import org.restnucleus.filter.PersistenceFilter;
+import org.restnucleus.filter.QueryFilter;
 import org.restnucleus.log.SLF4JTypeListener;
 
 import com._37coins.cache.Cache;
 import com._37coins.envaya.QueueClient;
 import com._37coins.helper.MockMerchantClient;
+import com._37coins.helper.WrapFilter;
 import com._37coins.merchant.MerchantClient;
 import com._37coins.parse.AbuseFilter;
 import com._37coins.parse.CommandParser;
 import com._37coins.parse.InterpreterFilter;
-import com._37coins.parse.ParserAccessFilter;
 import com._37coins.parse.ParserClient;
 import com._37coins.parse.ParserFilter;
 import com._37coins.sendMail.MailServiceClient;
 import com._37coins.sendMail.MockEmailClient;
 import com._37coins.util.FiatPriceProvider;
+import com._37coins.util.ResourceBundleClient;
+import com._37coins.util.ResourceBundleFactory;
 import com._37coins.web.AccountPolicy;
 import com._37coins.workflow.NonTxWorkflowClientExternalFactoryImpl;
 import com._37coins.workflow.WithdrawalWorkflowClientExternalFactoryImpl;
@@ -60,14 +65,16 @@ public class TestServletConfig extends GuiceServletContextListener {
 
 	@Override
 	protected Injector getInjector() {
-		final String restUrl = "http://localhost:8080";
+		final String restUrl = "http://localhost:8087";
 		 injector = Guice.createInjector(new ServletModule(){
 	            @Override
 	            protected void configureServlets(){
+	                filter("/*").through(CorsFilter.class);
 	                filter("/*").through(GuiceShiroFilter.class);
+	                filter("/api/*").through(QueryFilter.class);
 	                filter("/api/*").through(PersistenceFilter.class);
 	            	filter("/envayasms/*").through(PersistenceFilter.class);
-	            	filter("/parser/*").through(ParserAccessFilter.class); //make sure no-one can access those urls
+	            	filter("/parser/*").through(WrapFilter.class);
 	            	filter("/parser/*").through(ParserFilter.class); //read message into dataset
 	            	filter("/parser/*").through(AbuseFilter.class);    //prohibit overuse
 	            	filter("/parser/*").through(PersistenceFilter.class); //allow directory access
@@ -78,19 +85,35 @@ public class TestServletConfig extends GuiceServletContextListener {
 	            	bindListener(Matchers.any(), new SLF4JTypeListener());
 	            	bind(ParserClient.class);
 	            	bind(QueueClient.class);
+	            	bind(WrapFilter.class);
 	        	}
 				
 				@Provides
 				@Singleton
 				@SuppressWarnings("unused")
-				public CommandParser getMessageProcessor() {
-				  return new CommandParser();
+				public CommandParser getMessageProcessor(ResourceBundleFactory rbf) {
+				  return new CommandParser(rbf);
 				}
 				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ParserFilter getParserFilter(FiatPriceProvider fiatPriceProvider) {
+	                return new ParserFilter(fiatPriceProvider, MessagingServletConfig.unitFactor, MessagingServletConfig.unitName);
+	            }
+				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public DigestFilter getDigestFilter(){
+	                return new DigestFilter(MessagingServletConfig.digestToken);
+	            }
+				
 				@Provides @Singleton @SuppressWarnings("unused")
-				MerchantClient provideProductsClient(){
+				MerchantClient provideMerchantClient(){
 				    return new MockMerchantClient("bla","bla");
 				}
+				
+                @Provides @Singleton @SuppressWarnings("unused")
+                CorsFilter provideCorsFilter(){
+                    return new CorsFilter("*");
+                }
 				
 	            @Provides @Singleton @SuppressWarnings("unused")
 	            PersistenceManagerFactory providePersistence(){
@@ -122,14 +145,25 @@ public class TestServletConfig extends GuiceServletContextListener {
 				  return new AmazonSimpleWorkflowClient();
 				}
 				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ResourceBundleClient getResourceBundleClient(){
+	                ResourceBundleClient client = new ResourceBundleClient(MessagingServletConfig.resPath+"/scripts/nls/");
+	                return client;
+	            }
+	            
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ResourceBundleFactory getResourceBundle(com._37coins.cache.Cache cache, ResourceBundleClient client){
+	                return new ResourceBundleFactory(MessagingServletConfig.activeLocales, client, cache);
+	            }
+				
 				@Provides @Singleton @SuppressWarnings("unused")
-				public MessageFactory provideMessageFactory() {
-					return new MessageFactory();
+				public MessageFactory provideMessageFactory(ResourceBundleFactory rbf) {
+					return new MessageFactory(null,rbf,1000,"mBTC","#,##0.###");
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")
 				public FiatPriceProvider provideFiatPrices(Cache cache){
-					return new FiatPriceProvider(cache);
+	                return new FiatPriceProvider(cache, restUrl + "/helper");
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")

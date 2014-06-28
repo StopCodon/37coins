@@ -1,11 +1,15 @@
 define([
     'backbone',
-    'hbs!tmpl/commandHelpLayout_tmpl'
+    'hbs!tmpl/commandHelpLayout_tmpl',
+    'i18n!nls/labels'
 ],
-function(Backbone, HelpTmpl) {
+function(Backbone, HelpTmpl, myLabels) {
     'use strict';
     return Backbone.Marionette.Layout.extend({
         template: HelpTmpl,
+        templateHelpers: function(){
+            return window.helpers(myLabels);
+        },
         regions: {
             commands: '#smsCommands'
         },
@@ -13,6 +17,10 @@ function(Backbone, HelpTmpl) {
         onShow:function () {
             this.$('.collapse').collapse({
                 parent: '#accordion',
+                toggle: true
+            });
+            this.$('.collapse2').collapse({
+                parent: '#accordion2',
                 toggle: true
             });
             var self = this;
