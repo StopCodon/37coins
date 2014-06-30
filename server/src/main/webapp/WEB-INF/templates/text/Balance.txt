@@ -7,8 +7,14 @@
 <#else>
 <#assign fiat = "">
 </#if>
-<#assign bal = payload.miliBalance>
+<#assign bal = payload.balance * unitFactor>
 <#if bal < 0>
 <#assign bal = 0>
+<#assign fiat ="">
 </#if>
-${resBundle("Balance",bal?string("#,##0.###"),fiat)}
+<#if action = "BALANCE">
+<#assign inst = resBundle.BalanceInst>
+<#else>
+<#assign inst = "">
+</#if>
+${resBundle("Balance",bal?string(unitFormat),fiat,inst,unitName)}

@@ -54,8 +54,8 @@ function( Backbone, Communicator, HeaderView, NavView, FooterView) {
     /* Add initializers here */
     App.addInitializer( function (options) {
         if (!App.getParameterByName('noHead')){
-            App.nav.show(new NavView({model:new Backbone.Model({resPath:window.opt.resPath, basePath:window.opt.basePath})}));
-            App.footer.show(new FooterView({model:new Backbone.Model({resPath:window.opt.resPath, basePath:window.opt.basePath})}));
+            App.nav.show(new NavView({model:new Backbone.Model({resPath:window.opt.resPath, basePath:window.opt.basePath, l:window.getLocale()})}));
+            App.footer.show(new FooterView({model:new Backbone.Model({resPath:window.opt.resPath, basePath:window.opt.basePath, l:window.getLocale()})}));
             window.UserVoice.push(['addTrigger', {
                 mode: 'contact',
                 trigger_color: 'white',
@@ -68,6 +68,7 @@ function( Backbone, Communicator, HeaderView, NavView, FooterView) {
             $('div#content').css('padding-top','5px');
             $('div#footer').remove();
         }
+        $('body').attr('style', '');
         this.router = new options.pageController.Router({
             controller: options.pageController, // wire-up the start method
             app:App

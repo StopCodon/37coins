@@ -7,10 +7,17 @@
 <#else>
 <#assign balFiat = "">
 </#if>
+<#if fiatPriceProvider??>
 <#assign amtTick = fiatPriceProvider.getLocalCurValue(payload.amount,locale)!"error">
+</#if>
 <#if amtTick?? & amtTick != "error">
 <#assign amtFiat = " ("+amtTick.getLastFactored()?string.currency+")">
 <#else>
 <#assign amtFiat = "">
 </#if>
-${resBundle("InsufficientFunds",payload.miliBalance?string("#,##0.###"),balFiat,payload.miliAmount?string("#,##0.###"),amtFiat)}
+<#assign bal = payload.balance * unitFactor>
+<#if bal < 0>
+<#assign bal = 0>
+<#assign balFiat ="">
+</#if>
+${resBundle("InsufficientFunds",bal?string(unitFormat),balFiat,(payload.amount*unitFactor)?string(unitFormat),amtFiat,unitName)}

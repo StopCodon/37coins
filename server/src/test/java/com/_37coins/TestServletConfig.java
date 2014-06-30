@@ -5,27 +5,37 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 
+import javax.jdo.PersistenceManagerFactory;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 
-import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.config.CacheConfiguration;
 import net.sf.ehcache.store.MemoryStoreEvictionPolicy;
 
-import org.apache.shiro.realm.ldap.JndiLdapContextFactory;
+import org.apache.shiro.guice.web.GuiceShiroFilter;
+import org.restnucleus.PersistenceConfiguration;
+import org.restnucleus.filter.CorsFilter;
+import org.restnucleus.filter.DigestFilter;
+import org.restnucleus.filter.PersistenceFilter;
+import org.restnucleus.filter.QueryFilter;
 import org.restnucleus.log.SLF4JTypeListener;
 
+import com._37coins.cache.Cache;
 import com._37coins.envaya.QueueClient;
+import com._37coins.helper.MockMerchantClient;
+import com._37coins.helper.WrapFilter;
+import com._37coins.merchant.MerchantClient;
 import com._37coins.parse.AbuseFilter;
 import com._37coins.parse.CommandParser;
 import com._37coins.parse.InterpreterFilter;
-import com._37coins.parse.ParserAccessFilter;
 import com._37coins.parse.ParserClient;
 import com._37coins.parse.ParserFilter;
 import com._37coins.sendMail.MailServiceClient;
 import com._37coins.sendMail.MockEmailClient;
 import com._37coins.util.FiatPriceProvider;
+import com._37coins.util.ResourceBundleClient;
+import com._37coins.util.ResourceBundleFactory;
 import com._37coins.web.AccountPolicy;
 import com._37coins.workflow.NonTxWorkflowClientExternalFactoryImpl;
 import com._37coins.workflow.WithdrawalWorkflowClientExternalFactoryImpl;
@@ -33,8 +43,6 @@ import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClient;
 import com.brsanthu.googleanalytics.GoogleAnalytics;
 import com.brsanthu.googleanalytics.GoogleAnalyticsConfig;
-import com.corundumstudio.socketio.Configuration;
-import com.corundumstudio.socketio.SocketIOServer;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Provides;
@@ -57,44 +65,66 @@ public class TestServletConfig extends GuiceServletContextListener {
 
 	@Override
 	protected Injector getInjector() {
-		final String restUrl = "http://localhost:8080";
+		final String restUrl = "http://localhost:8087";
 		 injector = Guice.createInjector(new ServletModule(){
 	            @Override
 	            protected void configureServlets(){
-	            	filter("/envayasms/*").through(DirectoryFilter.class);
-	            	filter("/parser/*").through(ParserAccessFilter.class); //make sure no-one can access those urls
+	                filter("/*").through(CorsFilter.class);
+	                filter("/*").through(GuiceShiroFilter.class);
+	                filter("/api/*").through(QueryFilter.class);
+	                filter("/api/*").through(PersistenceFilter.class);
+	            	filter("/envayasms/*").through(PersistenceFilter.class);
+	            	filter("/parser/*").through(WrapFilter.class);
 	            	filter("/parser/*").through(ParserFilter.class); //read message into dataset
 	            	filter("/parser/*").through(AbuseFilter.class);    //prohibit overuse
-	            	filter("/parser/*").through(DirectoryFilter.class); //allow directory access
+	            	filter("/parser/*").through(PersistenceFilter.class); //allow directory access
 	            	filter("/parser/*").through(InterpreterFilter.class); //do semantic stuff
-	            	filter("/account*").through(DirectoryFilter.class); //allow directory access
-	            	filter("/merchant/*").through(DirectoryFilter.class);
-	            	filter("/email/*").through(DirectoryFilter.class); //allow directory access
+	            	filter("/account*").through(PersistenceFilter.class); //allow directory access
+	            	filter("/merchant/*").through(PersistenceFilter.class);
+	            	filter("/email/*").through(PersistenceFilter.class); //allow directory access
 	            	bindListener(Matchers.any(), new SLF4JTypeListener());
 	            	bind(ParserClient.class);
 	            	bind(QueueClient.class);
+	            	bind(WrapFilter.class);
 	        	}
 				
 				@Provides
 				@Singleton
 				@SuppressWarnings("unused")
-				public CommandParser getMessageProcessor() {
-				  return new CommandParser();
+				public CommandParser getMessageProcessor(ResourceBundleFactory rbf) {
+				  return new CommandParser(rbf);
 				}
 				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ParserFilter getParserFilter(FiatPriceProvider fiatPriceProvider) {
+	                return new ParserFilter(fiatPriceProvider, MessagingServletConfig.unitFactor, MessagingServletConfig.unitName);
+	            }
+				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public DigestFilter getDigestFilter(){
+	                return new DigestFilter(MessagingServletConfig.digestToken);
+	            }
+				
 				@Provides @Singleton @SuppressWarnings("unused")
-				public JndiLdapContextFactory provideLdapClientFactory(){
-					JndiLdapContextFactory jlc = new JndiLdapContextFactory();
-					jlc.setUrl(MessagingServletConfig.ldapUrl);
-					jlc.setAuthenticationMechanism("simple");
-					jlc.setSystemUsername(MessagingServletConfig.ldapUser);
-					jlc.setSystemPassword(MessagingServletConfig.ldapPw);
-					return jlc;
+				MerchantClient provideMerchantClient(){
+				    return new MockMerchantClient("bla","bla");
 				}
+				
+                @Provides @Singleton @SuppressWarnings("unused")
+                CorsFilter provideCorsFilter(){
+                    return new CorsFilter("*");
+                }
+				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            PersistenceManagerFactory providePersistence(){
+	                PersistenceConfiguration pc = new PersistenceConfiguration();
+	                pc.createEntityManagerFactory();
+	                return pc.getPersistenceManagerFactory();
+	            }
 				
 				@Provides @Singleton @SuppressWarnings("unused")
 				AccountPolicy providePolicy(){
-					return new AccountPolicy().setEmailMxLookup(true);
+					return new AccountPolicy().setEmailMxLookup(false);
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")
@@ -115,27 +145,30 @@ public class TestServletConfig extends GuiceServletContextListener {
 				  return new AmazonSimpleWorkflowClient();
 				}
 				
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ResourceBundleClient getResourceBundleClient(){
+	                ResourceBundleClient client = new ResourceBundleClient(MessagingServletConfig.resPath+"/scripts/nls/");
+	                return client;
+	            }
+	            
+	            @Provides @Singleton @SuppressWarnings("unused")
+	            public ResourceBundleFactory getResourceBundle(com._37coins.cache.Cache cache, ResourceBundleClient client){
+	                return new ResourceBundleFactory(MessagingServletConfig.activeLocales, client, cache);
+	            }
+				
 				@Provides @Singleton @SuppressWarnings("unused")
-				public MessageFactory provideMessageFactory() {
-					return new MessageFactory();
+				public MessageFactory provideMessageFactory(ResourceBundleFactory rbf) {
+					return new MessageFactory(null,rbf,1000,"mBTC","#,##0.###");
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")
 				public FiatPriceProvider provideFiatPrices(Cache cache){
-					return new FiatPriceProvider(cache);
+	                return new FiatPriceProvider(cache, restUrl + "/helper");
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")
 				MailServiceClient getMailClient(Cache cache){
 					return new MockEmailClient(cache);
-				}
-				
-				@Provides @Singleton @SuppressWarnings("unused")
-				public SocketIOServer provideSocket(){
-				 	Configuration config = new Configuration();
-				    config.setPort(8081);
-				    SocketIOServer server = new SocketIOServer(config);
-				    return server;
 				}
 				
 				@Provides @Singleton @SuppressWarnings("unused")
@@ -172,16 +205,17 @@ public class TestServletConfig extends GuiceServletContextListener {
 	        		//Create a singleton CacheManager using defaults
 	        		CacheManager manager = CacheManager.create();
 	        		//Create a Cache specifying its configuration.
-	        		Cache testCache = new Cache(new CacheConfiguration("cache", 1000)
+	        		net.sf.ehcache.Cache testCache = new net.sf.ehcache.Cache(new CacheConfiguration("cache", 1000)
 	        		    .memoryStoreEvictionPolicy(MemoryStoreEvictionPolicy.LFU)
 	        		    .eternal(false)
 	        		    .timeToLiveSeconds(7200)
 	        		    .timeToIdleSeconds(3600)
 	        		    .diskExpiryThreadIntervalSeconds(0));
 	        		  manager.addCache(testCache);
-	        		  return testCache;
+	        		  
+	        		  return new EhCacheWrapper(testCache);
 	        	}
-			});
+			},new MessagingShiroWebModule(this.servletContext));
 		return injector;
 	}
 

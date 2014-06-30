@@ -43,23 +43,26 @@ public class WithdrawalWorkflowImpl implements WithdrawalWorkflow {
     
     @Override
     public void executeCommand(final DataSet data) {
-    	Promise<BigDecimal> balance = bcdClient.getAccountBalance(data.getCn());
-    	Promise<BigDecimal> volume24h = bcdClient.getTransactionVolume(data.getCn(),24);
-    	handleAccount(balance, volume24h, data);
+    	Promise<BigDecimal> balance = bcdClient.getAccountBalance(data.getTo().getAddress().replace("+", ""));
+    	Promise<BigDecimal> volume24h = bcdClient.getTransactionVolume(data.getTo().getAddress().replace("+", ""),24);
+    	Promise<BigDecimal> limit = msgClient.getLimit(data.getTo().getGateway(),data.getTo().getAddress());
+    	handleAccount(balance, volume24h, limit, data);
     }
     
     @Asynchronous
-    public void handleAccount(Promise<BigDecimal> balance, Promise<BigDecimal> volume24h, final DataSet data){
+    public void handleAccount(Promise<BigDecimal> balance, Promise<BigDecimal> volume24h, Promise<BigDecimal> limit, final DataSet data){
 		final Settable<DataSet> confirm = new Settable<>();
     	Withdrawal w = (Withdrawal)data.getPayload();
     	BigDecimal amount = w.getAmount();
     	BigDecimal fee = w.getFee().setScale(8);
+        if (null!=w.getPayDest() && w.getPayDest().getAddressType()==PaymentType.ACCOUNT){
+            bcFee=BigDecimal.ZERO;
+        }
     	//for withdrawing everything
-    	if (amount.equals(BigDecimal.ZERO) && w.getConfKey()!=null){
+    	if (amount.equals(BigDecimal.ZERO)){
     		amount = balance.get().subtract(fee).subtract(bcFee);
     		w.setAmount(amount);
     	}
-    	
     	if (balance.get().compareTo(amount.add(fee).add(bcFee).setScale(8))<0){
     		//balance not sufficient
     		data.setPayload(new Withdrawal()
@@ -81,9 +84,7 @@ public class WithdrawalWorkflowImpl implements WithdrawalWorkflow {
     	}else{
     		//balance sufficient, now secure transaction authenticity 
 			final Promise<Action> response;
-			if (w.getConfKey()!=null){
-				response = msgClient.otpConfirmation(data.getCn(), w.getConfKey(),data.getLocale());
-			}else if (volume24h.get().add(amount).compareTo(fee.multiply(new BigDecimal("100.0"))) > 0){
+			if (volume24h.get().add(amount).compareTo(limit.get()) > 0){
 				response = msgClient.phoneConfirmation(data,contextProvider.getDecisionContext().getWorkflowContext().getWorkflowExecution().getWorkflowId());
 				w.setConfKey(WithdrawalWorkflow.VOICE_VER_TOKEN);
 			}else {
@@ -133,7 +134,7 @@ public class WithdrawalWorkflowImpl implements WithdrawalWorkflow {
 	    		Promise<String> tx = bcdClient.sendTransaction(
 	    				w.getAmount(), 
 	    				w.getFee(), 
-	    				rsp.get().getCn(), 
+	    				rsp.get().getTo().getAddress().replace("+", ""), 
 	    				toId, 
 	    				toAddress,
 	    				workflowId,
@@ -167,13 +168,13 @@ public class WithdrawalWorkflowImpl implements WithdrawalWorkflow {
 	    	bcdClient.sendTransaction(
 	    			w.getFee(), 
 	    			BigDecimal.ZERO, 
-	    			data.getCn(), 
+	    			data.getTo().getAddress().replace("+", ""), 
 	    			w.getFeeAccount(), 
 	    			null,
 	    			contextProvider.getDecisionContext().getWorkflowContext().getWorkflowExecution().getWorkflowId(),
 	    			"");
     	}
-    	Promise<BigDecimal> balance = bcdClient.getAccountBalance(data.getCn());
+    	Promise<BigDecimal> balance = bcdClient.getAccountBalance(data.getTo().getAddress().replace("+", ""));
     	w.setTxId(txId.get());
     	afterSend(balance, data);
     }

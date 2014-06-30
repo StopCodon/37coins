@@ -3,7 +3,6 @@ package com._37coins;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import javax.mail.internet.AddressException;
 
@@ -23,7 +22,6 @@ import com._37coins.workflow.NonTxWorkflowClientFactory;
 import com._37coins.workflow.NonTxWorkflowClientFactoryImpl;
 import com._37coins.workflow.pojo.DataSet;
 import com._37coins.workflow.pojo.DataSet.Action;
-import com._37coins.workflow.pojo.EmailFactor;
 import com._37coins.workflow.pojo.MessageAddress;
 import com._37coins.workflow.pojo.MessageAddress.MsgType;
 import com._37coins.workflow.pojo.PaymentAddress;
@@ -63,7 +61,7 @@ public class NonTxWorkflowTest {
 			}
 			@Override
 			public String getNewAddress(String cn) {
-				if (cn.equalsIgnoreCase("1")){
+				if (cn.equalsIgnoreCase("test@37coins.com")){
 					return "1Nsateouhasontuh234";
 				}else{
 					throw new RuntimeException("not found");
@@ -117,27 +115,16 @@ public class NonTxWorkflowTest {
 			public void putAddressCache(DataSet rsp) {
 			}
 			@Override
-		    public String emailVerification(EmailFactor ef, Locale locale){
-				trace.add(new DataSet().setPayload(ef));
-				return null;
-			}
-			@Override
-		    public void emailConfirmation(String emailServiceToken, Locale locale){
-			}
-			@Override
-		    public void emailOtpCreation(String cn, String email, Locale locale){	
-			}
-			@Override
-			public Action otpConfirmation(String cn, String otp, Locale locale){
-				return null;
-			}
-			@Override
-			public BigDecimal readAccountFee(String cn) {
+			public BigDecimal readAccountFee(String mobile) {
 				return new BigDecimal("0.0001");
 			}
 			@Override
 			public BigDecimal readRate(String curCode, BigDecimal amountBtc) {
 				return null;
+			}
+			@Override
+			public BigDecimal getLimit(String gateway, String mobile){
+			    return new BigDecimal("0.012").setScale(8);
 			}
         };
         EposActivities eposActivities = new EposActivities() {
@@ -169,7 +156,6 @@ public class NonTxWorkflowTest {
 		NonTxWorkflowClient workflow = workflowFactory.getClient();
 		DataSet data = new DataSet()
 			.setAction(Action.SIGNUP)
-			.setCn("1")
 			.setTo(new MessageAddress()
 				.setAddress("test@37coins.com"));
 		Promise<Void> booked = workflow.executeCommand(data);
@@ -272,7 +258,10 @@ public class NonTxWorkflowTest {
 		NonTxWorkflowClient workflow = workflowFactory.getClient();
 		DataSet data = new DataSet()
 			.setAction(Action.BALANCE)
-			.setCn("1");
+			.setCn("1")
+			.setTo(new MessageAddress()
+                .setAddress("+491606941382")
+                .setAddressType(MsgType.SMS));
 		Promise<Void> booked = workflow.executeCommand(data);
 		data.setPayload(new Withdrawal()
 				.setBalance(new BigDecimal("2.4999")));
@@ -284,7 +273,9 @@ public class NonTxWorkflowTest {
 		NonTxWorkflowClient workflow = workflowFactory.getClient();
 		DataSet data = new DataSet()
 			.setAction(Action.TRANSACTION)
-			.setCn("1");
+			.setTo(new MessageAddress()
+                .setAddress("+491606941382")
+                .setAddressType(MsgType.SMS));
 		Promise<Void> booked = workflow.executeCommand(data);
 		data.setPayload(list);
 		validate("successfull tx", data, trace, booked);

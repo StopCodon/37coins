@@ -24,7 +24,8 @@ function(Backbone, Communicator, LoginTmpl) {
             });
             alert.removeClass('in');
         },
-        handleLogin: function() {
+        handleLogin: function(e) {
+            e.preventDefault();
             this.$('#loginBtn').button('loading');
             var user = $('input:text').val();
             var pw = $('input:password').val();
@@ -35,7 +36,7 @@ function(Backbone, Communicator, LoginTmpl) {
             this.model.set({
                 locale: window.opt.lng,
                 basePath: window.opt.basePath,
-                srvcPath: window.opt.srvcPath
+                srvcPath: window.opt.srvcPath.split('://')[1]
             });
             sessionStorage.setItem('credentials',JSON.stringify(cred));
             this.model.credentials = cred;
@@ -76,8 +77,8 @@ function(Backbone, Communicator, LoginTmpl) {
                 },
                 errorElement: 'span',
                 errorClass: 'help-block',
-                submitHandler: function() {
-                    self.handleLogin();
+                submitHandler: function(a,e) {
+                    self.handleLogin(e);
                 },
                 errorPlacement: function(error, element) {
                     error.insertAfter(element);

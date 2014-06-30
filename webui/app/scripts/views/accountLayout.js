@@ -5,12 +5,13 @@ define([
     'views/commandsView',
     'views/accountHeadlineView',
     'webfinger',
+    'i18n!nls/labels'
 ],
-function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineView, webfinger) {
+function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineView, webfinger, myLabels) {
     'use strict';
     return Backbone.Marionette.Layout.extend({
         template: AccountLayout,
-
+        templateHelpers: function(){return {s: myLabels};},
         regions: {
             commands: '#smsCommands',
             header: '#accountHeadline'
@@ -52,11 +53,15 @@ function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineVie
                 var numberType = this.phoneUtil.getNumberType(number);
                 if (numberType === pnt.MOBILE || numberType === pnt.FIXED_LINE_OR_MOBILE) {
                     var strIntlNumber = this.phoneUtil.format(number, pnf.E164);
+                    var obj = JSON.stringify({mobile:strIntlNumber});
+                    if (this.phoneUtil.getRegionCodeForNumber(number)==='US'){
+                        obj = JSON.stringify({mobile:strIntlNumber});
+                    }
                     $.ajax({
                         type: 'POST',
                         contentType: 'application/json',
-                        url: window.opt.basePath+'/account/invite',
-                        data: JSON.stringify({mobile:strIntlNumber}),
+                        url: window.opt.basePath+'/accounts/invite',
+                        data: obj,
                         complete: function(data){
                             self.attempts = 0;
                             self.number = strIntlNumber.replace('+','');
@@ -94,7 +99,9 @@ function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineVie
             }
             if (cn && this.attempts < 7){
                 var self = this;
-                webfinger(cn+'@www.37coins.com', {
+                var wfPath = (window.opt.srvcPath)?window.opt.srvcPath.split('://')[1]:'37coins.com';
+                console.log(wfPath);
+                webfinger(cn+'@'+wfPath, {
                     webfist_fallback: false,
                     tls_only: true,
                     uri_fallback: false,
@@ -111,6 +118,7 @@ function(Backbone, Communicator, AccountLayout, CommandsView, AccountHeadlineVie
                 this.$('#donate').append( '<a href="bitcoin:'+data+'">'+data+'</a>');
                 this.attemts = 0;
             }else{
+                this.attempts++;
                 this.submitInvite({status:200});
             }
         }

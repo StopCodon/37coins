@@ -3,7 +3,6 @@ package com._37coins;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.CancellationException;
 
 import javax.mail.internet.AddressException;
@@ -28,7 +27,6 @@ import com._37coins.workflow.WithdrawalWorkflowClientFactory;
 import com._37coins.workflow.WithdrawalWorkflowClientFactoryImpl;
 import com._37coins.workflow.pojo.DataSet;
 import com._37coins.workflow.pojo.DataSet.Action;
-import com._37coins.workflow.pojo.EmailFactor;
 import com._37coins.workflow.pojo.MessageAddress;
 import com._37coins.workflow.pojo.MessageAddress.MsgType;
 import com._37coins.workflow.pojo.PaymentAddress;
@@ -55,6 +53,7 @@ public class WithdrawalWorkflowTest {
 	// and outgoing tx volume of 0.2
 	public static Withdrawal USER1 = new Withdrawal()
 			.setMsgDest(new MessageAddress()
+			    .setAddress("+491606941382")
 				.setAddressType(MsgType.SMS))
 			.setPayDest(new PaymentAddress()
 				.setAddress("1")
@@ -67,6 +66,7 @@ public class WithdrawalWorkflowTest {
 	// if this user sends a transaction, he always rejects it later
 	public static Withdrawal USER2 = new Withdrawal()
 		.setMsgDest(new MessageAddress()
+		    .setAddress("+491606941383")
 			.setAddressType(MsgType.SMS))
 		.setPayDest(new PaymentAddress()
 			.setAddress("2")
@@ -80,6 +80,7 @@ public class WithdrawalWorkflowTest {
 	// this user has a block voice pin
 	public static Withdrawal USER4 = new Withdrawal()
 		.setMsgDest(new MessageAddress()
+		    .setAddress("+491606941384")
 			.setAddressType(MsgType.SMS))
 		.setPayDest(new PaymentAddress()
 			.setAddress("4")
@@ -177,28 +178,17 @@ public class WithdrawalWorkflowTest {
 			public void putAddressCache(DataSet rsp) {
 			}
 			@Override
-		    public String emailVerification(EmailFactor ef, Locale locale){
-				return null;
-			}
-			@Override
-		    public void emailConfirmation(String emailServiceToken, Locale locale){
-			}
-			@Override
-		    public void emailOtpCreation(String cn, String email, Locale locale){	
-			}
-			@Override
-			public Action otpConfirmation(String cn, String otp, Locale locale){
-				trace.add(new DataSet().setCn(cn).setLocale(locale).setAction(Action.WITHDRAWAL_REQ));
-				return Action.WITHDRAWAL_REQ;
-			}
-			@Override
-			public BigDecimal readAccountFee(String cn) {
+			public BigDecimal readAccountFee(String mobile) {
 				return new BigDecimal("0.0001");
 			}
 			@Override
 			public BigDecimal readRate(String curCode, BigDecimal amountBtc) {
 				return null;
 			}
+	        @Override
+            public BigDecimal getLimit(String gateway, String mobile){
+                return new BigDecimal("0.012").setScale(8);
+            }
 		};
         EposActivities eposActivities = new EposActivities() {
 
@@ -542,7 +532,7 @@ public class WithdrawalWorkflowTest {
 				&& trace.get(1).getAction()==Action.WITHDRAWAL_CONF
 				&& trace.get(2).getAction()==Action.DEPOSIT_CONF);
 		Withdrawal w = (Withdrawal)trace.get(1).getPayload();
-		Assert.assertEquals(new BigDecimal("2.49940000"),w.getAmount());
+		Assert.assertEquals(new BigDecimal("2.49950000"),w.getAmount());
 	}
 
 }

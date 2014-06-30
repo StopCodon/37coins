@@ -1,5 +1,12 @@
 <#setting locale=locale>
-<#function mili x>
-  <#return x * 1000>
-</#function>
-${mili(getGwFee())}mBTC = ${payload.getLastFactored()?string.currency} 
+<#if getGwFee()??>
+<#assign btc = getGwFee() * unitFactor>
+<#else>
+<#assign btc = 1>
+</#if>
+<#if payload.getLastFactored()??>
+<#assign fiat = payload.getLastFactored()>
+<#else>
+<#assign fiat = payload.getLast() / unitFactor>
+</#if>
+${btc}${unitName} = ${fiat?string.currency}
