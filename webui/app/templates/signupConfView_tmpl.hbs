@@ -1,11 +1,11 @@
 <div class="row">
     <div class="col-sm-12">
-    	<h2 class="form-signin-heading">Sign Up</h2>
+    	<h2 class="form-signin-heading">{{w.loginView.wallet.signUpConf.signUpH2}}</h2>
 		<div id="signupSucAlert" class="alert alert-success fade">
-		  <strong>Success!</strong> Account created. <a href="#gateways" class="alert-link">Get started</a>!
+		  <strong>{{w.loginView.wallet.signUpConf.success}}</strong> {{w.loginView.wallet.signUpConf.created}} <a href="#gateways" class="alert-link">{{w.loginView.wallet.signUpConf.linkLabel}}</a>{{w.loginView.wallet.signUpConf.linkLabelPunct}}
 		</div>
 		<div id="signupErrAlert" class="alert alert-danger fade">
-		  <strong>Error!</strong> Account creation failed. Please <a href="/{{l}}/contact" class="alert-link">contact support</a>.
+		  <strong>{{w.loginView.wallet.signUpConf.sad}}</strong>&nbsp;{{w.loginView.wallet.signUpConf.sadMsg}}&nbsp;<a href="/{{l}}/contact" class="alert-link">{{w.loginView.wallet.signUpConf.support}}</a>.
 		</div>
 	</div>
 </div>

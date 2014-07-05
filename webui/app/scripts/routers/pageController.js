@@ -98,8 +98,12 @@ define(['backbone',
                 var locale = window.getLocale();
                 if (args.length > 0 && args[0].length===2 && fragment.indexOf(args[0])===0){
                     if(locale !== args[0]) {
-                        localStorage.setItem('locale', args[0]);
-                        location.reload();
+                        if (args[0] in window.activeLocales){
+                            localStorage.setItem('locale', args[0]);
+                            location.reload();
+                        }else{
+                            this.lngRedirect(fragment, args, next);
+                        }
                     }
                 }else{
                     if(locale !== 'en') {
@@ -164,7 +168,10 @@ define(['backbone',
             }
         },
         lngRedirect: function(fragment, args, next) {
-            if (args.length > 0 && args[0].length===2 && fragment.indexOf(args[0])===0){
+            var activeLocales = window.activeLocales;
+            activeLocales.en = true;
+            if (args.length > 0 && args[0].length===2 &&
+                fragment.indexOf(args[0])===0 && args[0] in activeLocales){
                 next();
             }else{
                 var locale = window.getLocale();
@@ -226,10 +233,10 @@ define(['backbone',
     });
 
     Controller.showIndex = function() {
-        var header = new IndexHeaderLayout({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
-        var layout = new IndexLayout({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
+        var header = new IndexHeaderLayout();
+        var layout = new IndexLayout();
         Communicator.mediator.trigger('app:show', layout, header);
-        var mobileInput = new MobileInputView({model:new Backbone.Model({resPath:window.opt.resPath})});
+        var mobileInput = new MobileInputView();
         header.mobileInput.show(mobileInput);
         layout.gateways.show(new GatewayCollectionView({collection:this.gateways}));
         var commands = new CommandsView();
@@ -238,7 +245,7 @@ define(['backbone',
 
     Controller.showAccount = function(lang, mobile) {
         var header = new AccountHeaderView({mobile:mobile,gateways:this.gateways});
-        var layout = new AccountLayout({mobile:mobile,model:new Backbone.Model({l:window.getLocale()})});
+        var layout = new AccountLayout({mobile:mobile});
         Communicator.mediator.trigger('app:show', layout, header);
         var commands = new CommandsView();
         layout.commands.show(commands);
@@ -262,7 +269,7 @@ define(['backbone',
     };
 
     Controller.showAbout = function() {
-        var view = new AboutView({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
+        var view = new AboutView();
         Communicator.mediator.trigger('app:show', view);
     };
 
@@ -277,11 +284,11 @@ define(['backbone',
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.showTerms = function() {
-        var contentView = new TermsView({model:new Backbone.Model({l:window.getLocale()})});
+        var contentView = new TermsView();
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.showPrivacy = function() {
-        var contentView = new PrivacyView({model:new Backbone.Model({l:window.getLocale()})});
+        var contentView = new PrivacyView();
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.showMerchant = function() {
@@ -300,7 +307,7 @@ define(['backbone',
         }
     };
     Controller.showCommandHelp = function() {
-        var layout = new CommandHelpLayout({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
+        var layout = new CommandHelpLayout();
         Communicator.mediator.trigger('app:show',layout);
         var commands = new CommandsView();
         layout.commands.show(commands);
@@ -310,35 +317,35 @@ define(['backbone',
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.showSignUp = function() {
-        var accountRequest = new AccountRequest({ticket:Controller.ticket,l:window.getLocale()});
+        var accountRequest = new AccountRequest({ticket:Controller.ticket});
         var contentView = new SignupView({model:accountRequest});
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.showSignupWallet = function() {
-        var layout = new SignupWalletLayout({model:new Backbone.Model({l:window.getLocale()})});
+        var layout = new SignupWalletLayout();
         Communicator.mediator.trigger('app:show',layout);
-        var mobileInput = new MobileInputView({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
+        var mobileInput = new MobileInputView();
         layout.mobileInput.show(mobileInput);
     };
     Controller.showSigninWallet = function() {
-        var layout = new SigninWalletLayout({model:new Backbone.Model({l:window.getLocale()})});
+        var layout = new SigninWalletLayout();
         Communicator.mediator.trigger('app:show',layout);
-        var mobileInput = new MobileInputView({model:new Backbone.Model({resPath:window.opt.resPath,l:window.getLocale()})});
+        var mobileInput = new MobileInputView();
         layout.mobileInput.show(mobileInput);
     };
     Controller.confirmSignUp = function(lang, token) {
-        var model = new SignupConf({token:token,l:window.getLocale()});
+        var model = new SignupConf({token:token});
         var contentView = new SignupConfView({model: model});
         Communicator.mediator.trigger('app:show',contentView);
         model.save();
     };
     Controller.showReset = function() {
-        var model = new ResetRequest({ticket:Controller.ticket,l:window.getLocale()});
+        var model = new ResetRequest({ticket:Controller.ticket});
         var contentView = new ResetView({model:model});
         Communicator.mediator.trigger('app:show',contentView);
     };
     Controller.confirmReset = function(lang, token) {
-        var model = new ResetConf({token:token,l:window.getLocale()});
+        var model = new ResetConf({token:token});
         var contentView = new ResetConfView({model: model});
         Communicator.mediator.trigger('app:show',contentView);
     };

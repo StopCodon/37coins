@@ -34,6 +34,7 @@ import com._37coins.parse.ParserClient;
 import com._37coins.persistence.dao.Account;
 import com._37coins.persistence.dao.Gateway;
 import com._37coins.persistence.dao.GatewaySettings;
+import com._37coins.pojo.EnvayaRequest;
 import com._37coins.resources.AccountResource;
 import com._37coins.resources.EnvayaSmsResource;
 import com._37coins.resources.GatewayResource;
@@ -109,7 +110,7 @@ public class RestTest {
         rv.add(gw4);
         rv.add(gw5);
         List<Account> ac = new ArrayList<>();
-        ac.add(new Account().setMobile("+821039841235").setDisplayName("merchant").setOwner(gw2).setApiSecret("test").setApiToken("test"));
+        ac.add(new Account().setMobile("+821039841235").setDisplayName("merchant").setOwner(gw2).setApiSecret("test").setApiToken("test").setLocale(new Locale("ko","KR")));
         Map<Class<? extends Model>, List<? extends Model>> data = new HashMap<>();
         data.put(Gateway.class, rv);
         data.put(Account.class, ac);
@@ -244,7 +245,7 @@ public class RestTest {
 	public void testVoiceReq() throws NoSuchAlgorithmException, UnsupportedEncodingException, InterruptedException{
     	final DataSet ds = new DataSet();
     	ParserClient parserClient = new ParserClient(cmdParser,ga,MessagingServletConfig.digestToken);
-		parserClient.start("+821039841235", "+821027423984", "OZV4N1JS2Z3476NL", Action.VOICE.toString(), 8087,
+		parserClient.start("+821039841235", "+821027423984", "OZV4N1JS2Z3476NL", "비밀번호", 8087,
 		new ParserAction() {
 			@Override
 			public void handleResponse(DataSet data) {ds.setAction(data.getAction());}			
@@ -267,7 +268,61 @@ public class RestTest {
 		Assert.assertEquals(new Locale("ko","KR"),ds.getLocale());
 		Assert.assertNotNull(ds.getCn());
     }
+    
+    @Test
+    public void testSendInstructions() throws NoSuchAlgorithmException, UnsupportedEncodingException, InterruptedException{
+        final DataSet ds = new DataSet();
+        ParserClient parserClient = new ParserClient(cmdParser,ga,MessagingServletConfig.digestToken);
+        parserClient.start("+821039841234", "+821027423984", "OZV4N1JS2Z3476NL", "send", 8087,
+        new ParserAction() {
+            @Override
+            public void handleResponse(DataSet data) {
+                ds.setAction(data.getAction());
+                ds.setTo(data.getTo());
+                ds.setCn(data.getCn());
+            }
+            
+            @Override
+            public void handleWithdrawal(DataSet data) {ds.setAction(data.getAction());}
+            @Override
+            public void handleDeposit(DataSet data) {ds.setAction(data.getAction());}
+            @Override
+            public void handleConfirm(DataSet data) {ds.setAction(data.getAction());}
+        });
+        parserClient.join();
+        Assert.assertTrue("unexpected Response: "+ds.getAction().toString(),ds.getAction()==Action.HELP_SEND);
+        Assert.assertEquals("OZV4N1JS2Z3476NL",ds.getTo().getGateway());
+        Assert.assertNotNull(ds.getCn());
+    }
 
+    @Test
+    public void testForeignLanguage() throws NoSuchAlgorithmException, UnsupportedEncodingException, InterruptedException{
+        final DataSet ds = new DataSet();
+        ParserClient parserClient = new ParserClient(cmdParser,ga,MessagingServletConfig.digestToken);
+        parserClient.start("+821039841235", "+821027423984", "OZV4N1JS2Z3476NL", "balanza", 8087,
+        new ParserAction() {
+            @Override
+            public void handleResponse(DataSet data) {ds.setAction(data.getAction());}
+            
+            @Override
+            public void handleWithdrawal(DataSet data) {ds.setAction(data.getAction());}
+            @Override
+            public void handleDeposit(DataSet data) {
+                ds.setAction(data.getAction());
+                ds.setTo(data.getTo());
+                ds.setLocale(data.getLocale());
+                ds.setCn(data.getCn());
+            }
+            @Override
+            public void handleConfirm(DataSet data) {ds.setAction(data.getAction());}
+        });
+        parserClient.join();
+        Assert.assertTrue("unexpected Response: "+ds.getAction().toString(),ds.getAction()==Action.BALANCE);
+        Assert.assertEquals(new Locale("es","KR"), ds.getLocale());
+        Assert.assertEquals("OZV4N1JS2Z3476NL",ds.getTo().getGateway());
+        Assert.assertNotNull(ds.getCn());
+    }
+    
     @Test
 	public void testCharge() throws NoSuchAlgorithmException, UnsupportedEncodingException, InterruptedException{
     	final DataSet ds = new DataSet();
@@ -342,12 +397,12 @@ public class RestTest {
 		.when()
 			.get(embeddedJetty.getBaseUri() + HealthCheckResource.PATH);
 		Map<String,String> m = new HashMap<>();
-		m.put("version", "0.1");
-		m.put("now","12356789");
-		m.put("power","30");
-		m.put("action","status");	
+		m.put(EnvayaRequest.VERSION, "1");
+		m.put(EnvayaRequest.NOW,"12356789");
+		m.put(EnvayaRequest.POWER,"30");
+		m.put(EnvayaRequest.PHONE_NUMBER, "+491606941382");
+		m.put(EnvayaRequest.ACTION,"test");
 		String serverUrl = embeddedJetty.getBaseUri() + EnvayaSmsResource.PATH+"/OZV4N1JS2Z3476NL/sms";
-		System.out.println(serverUrl);
 		String sig = EnvayaClient.calculateSignature(serverUrl, m, pw);
 		// fire get successfully
 		given()
@@ -356,11 +411,19 @@ public class RestTest {
 			.formParam("version", m.get("version"))
 			.formParam("now", m.get("now"))
 			.formParam("power", m.get("power"))
+			.formParam(EnvayaRequest.PHONE_NUMBER, m.get(EnvayaRequest.PHONE_NUMBER))
 			.formParam("action", m.get("action"))
 		.expect()
 			.statusCode(200)
 		.when()
 			.post(serverUrl);
+	  given()
+          .contentType(ContentType.URLENC)
+          .header("X-Request-Signature", sig)
+      .expect()
+          .statusCode(401)
+      .when()
+          .post(serverUrl);
 	}
 	
 	   

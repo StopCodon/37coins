@@ -1,9 +1,11 @@
 define([
 	'backbone',
 	'communicator' ,
-	'hbs!tmpl/navView_tmpl'
+	'hbs!tmpl/navView_tmpl',
+	'i18n!nls/labels',
+    'i18n!nls/webLabels'
 ],
-function(Backbone, Communicator, NavTmpl) {
+function(Backbone, Communicator, NavTmpl, myLabels, myWebLabels) {
     'use strict';
     return Backbone.Marionette.ItemView.extend({
 		initialize: function() {
@@ -14,6 +16,9 @@ function(Backbone, Communicator, NavTmpl) {
 			});
 		},
         template: NavTmpl,
+        templateHelpers: function(){
+            return window.helpers(myLabels, myWebLabels);
+        },
         className: 'navbar navbar-37',
         tagName: 'div role="navigation"',
         events: {

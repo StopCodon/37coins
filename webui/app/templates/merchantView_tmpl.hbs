@@ -1,21 +1,21 @@
 <div class="row">
     <div class="col-sm-12">
-        <h2 class="form-signin-heading">Account Verification</h2>
+        <h2 class="form-signin-heading">{{w.merchant.verify.h2}}</h2>
         <form role="form">
-        	<p>We are going to call you at your phone number to verify your mobile. Click <b>Call me now</b> below and enter the 4-digit code that will be displayed to you.</p>
+        	<p>{{w.merchant.verify.desc}}</p>
             <div class="control-group">
             	<div class="form-group">
-            		<label for="searchInput">Phone Number:</label><br>
-                	<input id="searchInput" type="tel" name="search" class="form-control" placeholder="+XXYYYYYYYY" disabled>
+            		<label for="searchInput">{{w.merchant.verify.searchInput.label}}</label><br>
+                	<input id="searchInput" type="tel" name="search" class="form-control" placeholder="{{w.merchant.verify.searchInput.placeholder}}" disabled>
                 </div>
                 <div class="form-group">
-                	<label for="disabledInput">Code:</label>
-                	<input class="form-control" id="disabledInput" type="text" placeholder="4 digit code here.." disabled>
+                	<label for="disabledInput">{{w.merchant.verify.searchInput.label}}</label>
+                	<input class="form-control" id="disabledInput" type="text" placeholder="{{w.merchant.verify.searchInput.placeholder}}" disabled>
                 </div>
             </div>
-            <button class="btn btn-inverse" type="submit" disabled="disabled">Call me now</button>
+            <button class="btn btn-inverse" type="submit" disabled="disabled">{{w.merchant.verify.verBtn}}</button>
         </form>
-        <span id="merchStatus" class="bg-info">Please insert your phone number.</span><br>
+        <span id="merchStatus" class="bg-info">{{w.merchant.verify.searchInput.merchStatus1}}</span><br>
         
 	</div>
 </div>

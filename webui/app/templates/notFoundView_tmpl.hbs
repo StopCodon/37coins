@@ -1,12 +1,12 @@
 <div class="row">
     <div class="col-sm-12">
-        <h1>Not found <span>:(</span></h1>
-        <p>Sorry, but the page you were trying to view does not exist.</p>
-        <p>It looks like this was the result of either:</p>
+        <h1>{{w.siteNav.notFound.h1}} <span>{{w.siteNav.notFound.face}}</span></h1>
+        <p>{{w.siteNav.notFound.sorry}}</p>
+        <p>{{w.siteNav.notFound.cause.expln}}</p>
         <ul>
-            <li>a mistyped address</li>
-            <li>an out-of-date link</li>
+            <li>{{w.siteNav.notFound.cause.link}}</li>
+            <li>{{w.siteNav.notFound.cause.addr}}</li>
         </ul>
-        <a href="/{{l}}/" class="alert-link">Continue to Index</a>
+        <a href="/{{l}}/" class="alert-link">{{w.siteNav.notFound.cause.backToHome}}</a>
     </div>
 </div>
