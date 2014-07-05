@@ -363,12 +363,12 @@ define({
             "feeInput" : {
                 "label" : "Transaction Fee:",
                 "placeholder" : "0.00xx",
-                "help-block" : "Choose a transaction fee payed to you by the user for each successful transaction."
+                "help-block" : "Set the per-transaction fee your users pay your gateway."
             },
             "msgInput" : {
                 "label" : "Welcome Message:",
-                "placeholder" : "37coins",
-                "help-block" : "Define the welcome message a new user receives."
+                "placeholder" : "Welcome to 37coins.",
+                "help-block" : "In the future, this will set a greeting for new users."
             },
             "urlInput" : {
                 "label" : "Company Url:",
